@@ -34,6 +34,7 @@ except Exception as e:
     st.exception(e)
     st.stop()
 
+from langchain_community.chat_message_histories.in_memory import ChatMessageHistory
 from langchain.memory import ConversationBufferMemory
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
@@ -42,7 +43,6 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, CSVLoader
 from langchain_core.documents import Document
-
 
 # ======================
 # Config / Paths
