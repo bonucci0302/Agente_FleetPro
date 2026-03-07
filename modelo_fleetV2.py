@@ -34,6 +34,7 @@ except Exception as e:
     st.exception(e)
     st.stop()
 
+from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain.memory import ConversationBufferMemory
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
