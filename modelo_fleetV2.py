@@ -36,7 +36,6 @@ except Exception as e:
 
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_community.chat_message_histories import ChatMessageHistory
-from langchain.memory import ConversationBufferMemory
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
 from langchain_openai import OpenAIEmbeddings
