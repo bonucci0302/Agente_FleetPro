@@ -7,7 +7,7 @@ from typing import Optional
 
 import streamlit as st
 
-st.set_page_config(page_title="FleetPro Expert", layout="wide")
+st.set_page_config(page_title="Oráculo FleetPro", layout="wide")
 
 
 def safe_run(fn):
@@ -35,10 +35,8 @@ except Exception as e:
     st.stop()
 
 from langchain.memory import ConversationBufferMemory
-
-from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
-from langchain_openai import OpenAIEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, CSVLoader
@@ -242,10 +240,6 @@ MAPA_PALAVRAS_COLUNAS = {
 TIPOS_RAG = (".pdf", ".txt", ".csv")
 
 CONFIG_MODELOS = {
-    "OpenAI": {
-        "modelos": ["gpt-4o-mini", "gpt-4o", "o1-preview", "o1-mini"],
-        "chat": ChatOpenAI,
-    },
     "Groq": {
         "modelos": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"],
         "chat": ChatGroq,
@@ -551,14 +545,14 @@ def _carregar_documentos_rag(pasta: str):
 
 
 @st.cache_resource(show_spinner="Indexando documentos de conhecimento (RAG)...")
-def obter_vectorstore(openai_api_key: str, usar_site: bool = True):
+def obter_vectorstore(usar_site: bool = True):
     """
     Cria ou carrega o banco vetorial (Chroma) com documentos locais + site FleetPro.
-    O cache só recria o índice se os arquivos ou o cache do site mudaram.
+    Usa HuggingFace embeddings gratuitos (sem necessidade de API key).
     """
     os.makedirs(BASE_DOCS_DIR, exist_ok=True)
 
-    embeddings = OpenAIEmbeddings(api_key=openai_api_key)
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
     arquivos_rag = _listar_arquivos_rag(BASE_DOCS_DIR)
 
@@ -978,7 +972,7 @@ def inicializar_oraculo(provedor: str, modelo: str, api_key: str):
     st.session_state["chat"] = chat
     st.session_state["provedor"] = provedor
     st.session_state["modelo"] = modelo
-    st.session_state["api_key_openai_rag"] = api_key if provedor == "OpenAI" else st.session_state.get("api_key_openai_rag", "")
+    st.session_state["api_key_openai_rag"] = ""
     st.session_state.setdefault("memoria", ConversationBufferMemory())
 
     obter_vectorstore.clear()
@@ -990,11 +984,7 @@ def inicializar_oraculo(provedor: str, modelo: str, api_key: str):
 # UI – Chat principal
 # ======================
 def pagina_chat():
-    col_logo, col_titulo = st.columns([1, 6])
-    with col_logo:
-        st.image("base_docs/fleetpro_logo.png", width=120)
-    with col_titulo:
-        st.header("🕵️‍♂️ FleetPro Expert 🛠️", divider=True)
+    st.header("🕵️‍♂️ Oráculo FleetPro 🛠️", divider=True)
 
     chat_model = st.session_state.get("chat")
     memoria: ConversationBufferMemory = st.session_state.get("memoria", ConversationBufferMemory())
@@ -1045,10 +1035,9 @@ def pagina_chat():
             # ── 2. Busca RAG (documentos locais + site FleetPro) ──────────────
             contexto_rag = ""
             if usar_rag and chat_model is not None:
-                api_key_openai = st.session_state.get("api_key_openai_rag", "")
-                if api_key_openai:
+                if True:
                     try:
-                        vs = obter_vectorstore(api_key_openai, usar_site=usar_site)
+                        vs = obter_vectorstore(usar_site=usar_site)
                         contexto_rag = buscar_no_rag(vs, input_usuario)
                     except Exception as e:
                         contexto_rag = f"(Erro ao acessar RAG: {e})"
@@ -1109,7 +1098,6 @@ def pagina_chat():
 # ======================
 def sidebar():
     st.title("⚙️ Configurações")
-    st.image("base_docs/cnh_logo.png", width=180)
 
     # ── Seção 1: Modelo de linguagem (LLM) ──────────────────────────────────
     with st.expander("🤖 Modelo de Linguagem (LLM)", expanded=True):
@@ -1128,9 +1116,6 @@ def sidebar():
             key="input_api_key_llm",
         )
         st.session_state[f"api_key_{provedor}"] = api_key
-
-        if provedor == "OpenAI" and api_key:
-            st.session_state["api_key_openai_rag"] = api_key
 
         if st.button("🚀 Inicializar Oráculo", use_container_width=True):
             inicializar_oraculo(provedor, modelo, api_key)
@@ -1178,35 +1163,22 @@ def sidebar():
         )
         st.session_state["usar_rag"] = usar_rag
 
-        if st.session_state.get("sel_provedor") != "OpenAI":
-            api_key_rag = st.text_input(
-                "API key OpenAI (para indexar documentos)",
-                value=st.session_state.get("api_key_openai_rag", ""),
-                type="password",
-                help="O RAG usa embeddings da OpenAI mesmo quando o LLM é Groq.",
-            )
-            st.session_state["api_key_openai_rag"] = api_key_rag
-        else:
-            st.caption("✅ Usando a mesma API key OpenAI configurada acima.")
+        st.caption("✅ Embeddings gratuitos (HuggingFace) — sem necessidade de API key.")
 
         col1, col2 = st.columns(2)
         with col1:
             if st.button("🔄 Reindexar", use_container_width=True):
-                api_key_rag = st.session_state.get("api_key_openai_rag", "")
-                if not api_key_rag:
-                    st.error("Informe a API key da OpenAI.")
-                else:
-                    obter_vectorstore.clear()
-                    _apagar_indice()
-                    try:
-                        usar_site = st.session_state.get("usar_site_fleetpro", True)
-                        vs = obter_vectorstore(api_key_rag, usar_site=usar_site)
-                        if vs:
-                            st.success("Indexado com sucesso!")
-                        else:
-                            st.warning("Nenhum documento encontrado.")
-                    except Exception as e:
-                        st.error(f"Erro: {e}")
+                obter_vectorstore.clear()
+                _apagar_indice()
+                try:
+                    usar_site = st.session_state.get("usar_site_fleetpro", True)
+                    vs = obter_vectorstore(usar_site=usar_site)
+                    if vs:
+                        st.success("Indexado com sucesso!")
+                    else:
+                        st.warning("Nenhum documento encontrado.")
+                except Exception as e:
+                    st.error(f"Erro: {e}")
 
         with col2:
             if st.button("📋 Ver docs", use_container_width=True):
@@ -1242,22 +1214,18 @@ def sidebar():
         col_s1, col_s2 = st.columns(2)
         with col_s1:
             if st.button("🕷️ Crawlear Agora", use_container_width=True, disabled=not usar_site):
-                api_key_rag = st.session_state.get("api_key_openai_rag", "")
-                if not api_key_rag:
-                    st.error("Informe a API key da OpenAI primeiro.")
-                else:
-                    # Força re-crawl e reindexa tudo
-                    obter_docs_do_site(forcar_recrawl=True)
-                    obter_vectorstore.clear()
-                    _apagar_indice()
-                    try:
-                        vs = obter_vectorstore(api_key_rag, usar_site=True)
-                        if vs:
-                            st.success("Site indexado com sucesso!")
-                        else:
-                            st.warning("Nenhum conteúdo foi indexado.")
-                    except Exception as e:
-                        st.error(f"Erro: {e}")
+                # Força re-crawl e reindexa tudo
+                obter_docs_do_site(forcar_recrawl=True)
+                obter_vectorstore.clear()
+                _apagar_indice()
+                try:
+                    vs = obter_vectorstore(usar_site=True)
+                    if vs:
+                        st.success("Site indexado com sucesso!")
+                    else:
+                        st.warning("Nenhum conteúdo foi indexado.")
+                except Exception as e:
+                    st.error(f"Erro: {e}")
 
         with col_s2:
             if st.button("🗑️ Limpar Cache", use_container_width=True):
