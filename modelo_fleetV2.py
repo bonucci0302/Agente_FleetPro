@@ -247,7 +247,11 @@ CONFIG_MODELOS = {
         "chat": ChatOpenAI,
     },
     "Groq": {
-        "modelos": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"],
+        "modelos": [
+            "llama-3.3-70b-versatile",
+            "llama-3.1-8b-instant",
+            "deepseek-r1-distill-llama-70b",
+        ],
         "chat": ChatGroq,
     },
 }
