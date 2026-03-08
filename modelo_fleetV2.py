@@ -7,7 +7,7 @@ from typing import Optional
 
 import streamlit as st
 
-st.set_page_config(page_title="Oráculo FleetPro", layout="wide")
+st.set_page_config(page_title="FleetPro Expert", layout="wide")
 
 
 def safe_run(fn):
@@ -990,7 +990,7 @@ def inicializar_oraculo(provedor: str, modelo: str, api_key: str):
 # UI – Chat principal
 # ======================
 def pagina_chat():
-    st.header("🕵️‍♂️ Oráculo FleetPro 🛠️", divider=True)
+    st.header("🕵️‍♂️ FleetPro Expert 🛠️", divider=True)
 
     chat_model = st.session_state.get("chat")
     memoria: ConversationBufferMemory = st.session_state.get("memoria", ConversationBufferMemory())
