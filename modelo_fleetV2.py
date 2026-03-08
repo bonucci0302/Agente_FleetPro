@@ -990,7 +990,11 @@ def inicializar_oraculo(provedor: str, modelo: str, api_key: str):
 # UI – Chat principal
 # ======================
 def pagina_chat():
-    st.header("🕵️‍♂️ FleetPro Expert 🛠️", divider=True)
+    col_logo, col_titulo = st.columns([1, 6])
+    with col_logo:
+        st.image("base_docs/fleetpro_logo.png", width=120)
+    with col_titulo:
+        st.header("🕵️‍♂️ FleetPro Expert 🛠️", divider=True)
 
     chat_model = st.session_state.get("chat")
     memoria: ConversationBufferMemory = st.session_state.get("memoria", ConversationBufferMemory())
@@ -1105,6 +1109,7 @@ def pagina_chat():
 # ======================
 def sidebar():
     st.title("⚙️ Configurações")
+    st.image("base_docs/cnh_logo.png", width=180)
 
     # ── Seção 1: Modelo de linguagem (LLM) ──────────────────────────────────
     with st.expander("🤖 Modelo de Linguagem (LLM)", expanded=True):
