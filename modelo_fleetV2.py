@@ -250,8 +250,7 @@ CONFIG_MODELOS = {
         "modelos": [
             "llama-3.3-70b-versatile",
             "llama-3.1-8b-instant",
-            "deepseek-r1-distill-llama-70b",
-        ],
+            ],
         "chat": ChatGroq,
     },
 }
@@ -1085,6 +1084,7 @@ def pagina_chat():
                         f"Seu papel é ajudar o VENDEDOR a:\n"
                         f"- Identificar rapidamente o PN FleetPro correto para o cliente\n"
                         f"- Ter argumentos técnicos e comerciais prontos para contornar objeções\n"
+                        f"- Sempre oferecer a possibilidade de outros itens em conjunto com a demanda (Cross Selling)\n"
                         f"- Explicar as vantagens do FleetPro frente à peça original ou concorrente\n"
                         f"- Transmitir confiança e credibilidade na indicação do produto\n\n"
                         f"Tom das respostas:\n"
