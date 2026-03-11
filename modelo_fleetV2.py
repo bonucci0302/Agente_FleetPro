@@ -35,7 +35,6 @@ except Exception as e:
     st.stop()
 
 from langchain.memory import ConversationBufferMemory
-
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
 from langchain_openai import OpenAIEmbeddings
@@ -242,16 +241,16 @@ MAPA_PALAVRAS_COLUNAS = {
 TIPOS_RAG = (".pdf", ".txt", ".csv")
 
 CONFIG_MODELOS = {
-    "OpenAI": {
-        "modelos": ["gpt-4o-mini", "gpt-4o", "o1-preview", "o1-mini"],
-        "chat": ChatOpenAI,
-    },
     "Groq": {
         "modelos": [
             "llama-3.3-70b-versatile",
             "llama-3.1-8b-instant",
-            ],
+        ],
         "chat": ChatGroq,
+    },
+    "OpenAI": {
+        "modelos": ["gpt-4o-mini", "gpt-4o"],
+        "chat": ChatOpenAI,
     },
 }
 
@@ -969,7 +968,7 @@ def procurar_pn(df: "pd.DataFrame", mensagem_usuario: str, max_resultados: int =
 # ======================
 # Inicializar LLM
 # ======================
-def inicializar_oraculo(provedor: str, modelo: str, api_key: str):
+def inicializar_FleetPro(provedor: str, modelo: str, api_key: str):
     api_key = (api_key or "").strip()
     if not api_key:
         st.error("Informe a API key antes de inicializar.")
@@ -986,7 +985,7 @@ def inicializar_oraculo(provedor: str, modelo: str, api_key: str):
 
     obter_vectorstore.clear()
 
-    st.success(f"Oráculo inicializado: {provedor} / {modelo}")
+    st.success(f"Agente FleetPro inicializado: {provedor} / {modelo}")
 
 
 # ======================
@@ -1011,6 +1010,30 @@ def pagina_chat():
 
     if not input_usuario:
         return
+
+    # ── Captura escolha de perfil ─────────────────────────────────────────
+    if st.session_state.get("perfil_usuario") is None:
+        resposta_lower = input_usuario.lower().strip()
+        if any(p in resposta_lower for p in ["1", "vendedor", "vendo", "balcão", "balcao", "revend"]):
+            st.session_state["perfil_usuario"] = "vendedor"
+            st.chat_message("human").markdown(input_usuario)
+            with st.chat_message("ai"):
+                resposta = "✅ Perfeito! Modo **Vendedor de Balcão** ativado. Pode fazer sua pergunta!"
+                st.markdown(resposta)
+            memoria.chat_memory.add_user_message(input_usuario)
+            memoria.chat_memory.add_ai_message(resposta)
+            st.session_state["memoria"] = memoria
+            st.stop()
+        elif any(p in resposta_lower for p in ["2", "usuario", "usuário", "uso", "minha máquina", "minha maquina", "agricultor", "operador"]):
+            st.session_state["perfil_usuario"] = "usuario"
+            st.chat_message("human").markdown(input_usuario)
+            with st.chat_message("ai"):
+                resposta = "✅ Perfeito! Modo **Usuário da Peça** ativado. Pode fazer sua pergunta!"
+                st.markdown(resposta)
+            memoria.chat_memory.add_user_message(input_usuario)
+            memoria.chat_memory.add_ai_message(resposta)
+            st.session_state["memoria"] = memoria
+            st.stop()
 
     st.chat_message("human").markdown(input_usuario)
 
@@ -1078,30 +1101,75 @@ def pagina_chat():
 
                 if blocos:
                     contexto_completo = "\n\n---\n\n".join(blocos)
-                    prompt = (
-                        f"Você é o FleetPro Expert, um assistente de vendas especializado em apoiar vendedores de balcão "
-                        f"na comercialização de peças de reposição FleetPro para máquinas agrícolas.\n\n"
-                        f"Seu papel é ajudar o VENDEDOR a:\n"
-                        f"- Identificar rapidamente o PN FleetPro correto para o cliente\n"
-                        f"- Ter argumentos técnicos e comerciais prontos para contornar objeções\n"
-                        f"- Sempre oferecer a possibilidade de outros itens em conjunto com a demanda (Cross Selling)\n"
-                        f"- Explicar as vantagens do FleetPro frente à peça original ou concorrente\n"
-                        f"- Transmitir confiança e credibilidade na indicação do produto\n\n"
-                        f"Tom das respostas:\n"
-                        f"- Direto e objetivo — o vendedor está atendendo um cliente no balcão agora\n"
-                        f"- Técnico quando necessário, mas sempre em linguagem acessível\n"
-                        f"- Forneça argumentos prontos que o vendedor pode usar na hora\n"
-                        f"- Se houver objeção de preço ou qualidade, sugira como rebater\n\n"
-                        f"O vendedor perguntou: **{input_usuario}**\n\n"
-                        f"Use as informações abaixo para responder com agilidade e precisão, "
-                        f"priorizando o PN FleetPro e os argumentos que ajudem a fechar a venda:\n\n"
-                        f"{contexto_completo}"
-                    )
+
+                    # ── Verifica perfil do usuário ────────────────────────
+                    perfil = st.session_state.get("perfil_usuario")
+
+                    if perfil is None:
+                        st.session_state["pergunta_pendente"] = input_usuario
+                        st.session_state["contexto_pendente"] = contexto_completo
+                        resposta = (
+                            "Antes de responder, preciso entender melhor como posso te ajudar! 😊\n\n"
+                            "**Você é:**\n"
+                            "- **1️⃣ Vendedor** — quero argumentos para atender meu cliente no balcão\n"
+                            "- **2️⃣ Usuário da peça** — quero saber se o FleetPro é a melhor opção para minha máquina\n\n"
+                            "_Digite o número ou o nome da opção._"
+                        )
+                        st.markdown(resposta)
+                        memoria.chat_memory.add_user_message(input_usuario)
+                        memoria.chat_memory.add_ai_message(resposta)
+                        st.session_state["memoria"] = memoria
+                        st.stop()
+
+                    elif perfil == "vendedor":
+                        prompt = (
+                            f"Você é o FleetPro Expert, um assistente de vendas especializado em apoiar vendedores de balcão "
+                            f"na comercialização de peças de reposição FleetPro para máquinas agrícolas.\n\n"
+                            f"Seu papel é ajudar o VENDEDOR a:\n"
+                            f"- Identificar rapidamente o PN FleetPro correto para o cliente\n"
+                            f"- Ter argumentos técnicos e comerciais prontos para contornar objeções\n"
+                            f"- Sempre oferecer a possibilidade de outros itens em conjunto com a demanda (Cross Selling)\n"
+                            f"- Explicar as vantagens do FleetPro frente à peça original ou concorrente\n"
+                            f"- Transmitir confiança e credibilidade na indicação do produto\n\n"
+                            f"Tom das respostas:\n"
+                            f"- Direto e objetivo — o vendedor está atendendo um cliente no balcão agora\n"
+                            f"- Técnico quando necessário, mas sempre em linguagem acessível\n"
+                            f"- Forneça argumentos prontos que o vendedor pode usar na hora\n"
+                            f"- Se houver objeção de preço ou qualidade, sugira como rebater\n\n"
+                            f"O vendedor perguntou: **{input_usuario}**\n\n"
+                            f"Use as informações abaixo para responder com agilidade e precisão, "
+                            f"priorizando o PN FleetPro e os argumentos que ajudem a fechar a venda:\n\n"
+                            f"{contexto_completo}"
+                        )
+                        resposta_stream = st.write_stream(chat_model.stream(prompt))
+                        resposta = resposta_stream
+
+                    elif perfil == "usuario":
+                        prompt = (
+                            f"Você é o FleetPro Expert, um consultor especialista em peças de reposição para máquinas agrícolas.\n\n"
+                            f"Você está falando DIRETAMENTE com o agricultor ou operador da máquina. Seu objetivo é:\n"
+                            f"- Mostrar que o FleetPro é a melhor escolha para a máquina dele\n"
+                            f"- Destacar que a qualidade é equivalente ou superior à peça original\n"
+                            f"- Ressaltar economia de custo sem abrir mão de desempenho\n"
+                            f"- Transmitir segurança e confiança na marca FleetPro\n"
+                            f"- Incentivar o cliente a pedir o FleetPro ao seu revendedor\n\n"
+                            f"Tom das respostas:\n"
+                            f"- Próximo, empático e direto — fale como um especialista de confiança\n"
+                            f"- Valorize a economia e a produtividade que o FleetPro proporciona\n"
+                            f"- Use exemplos práticos do dia a dia do campo quando possível\n"
+                            f"- Finalize sempre incentivando a buscar o FleetPro no revendedor mais próximo\n\n"
+                            f"O usuário perguntou: **{input_usuario}**\n\n"
+                            f"Use as informações abaixo para responder de forma clara e persuasiva, "
+                            f"reforçando os benefícios do FleetPro para quem usa a peça no campo:\n\n"
+                            f"{contexto_completo}"
+                        )
+                        resposta_stream = st.write_stream(chat_model.stream(prompt))
+                        resposta = resposta_stream
+
                 else:
                     prompt = input_usuario
-
-                resposta_stream = st.write_stream(chat_model.stream(prompt))
-                resposta = resposta_stream
+                    resposta_stream = st.write_stream(chat_model.stream(prompt))
+                    resposta = resposta_stream
 
             else:
                 st.markdown(resultado_matriz)
@@ -1145,8 +1213,8 @@ def sidebar():
         if provedor == "OpenAI" and api_key:
             st.session_state["api_key_openai_rag"] = api_key
 
-        if st.button("🚀 Inicializar Oráculo", use_container_width=True):
-            inicializar_oraculo(provedor, modelo, api_key)
+        if st.button("🚀 Inicializar FleetPro_Expert", use_container_width=True):
+            inicializar_FleetPro(provedor, modelo, api_key)
 
         st.divider()
         chat = st.session_state.get("chat")
