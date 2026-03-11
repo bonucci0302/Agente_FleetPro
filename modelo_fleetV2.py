@@ -1169,7 +1169,24 @@ def pagina_chat():
                         resposta = resposta_stream
 
                 else:
-                    prompt = input_usuario
+                    # ── FIX 9: Sem contexto de matriz/RAG — usa system prompt de identidade ──
+                    perfil = st.session_state.get("perfil_usuario")
+                    perfil_texto = ""
+                    if perfil == "vendedor":
+                        perfil_texto = "Você está auxiliando um VENDEDOR DE BALCÃO."
+                    elif perfil == "usuario":
+                        perfil_texto = "Você está falando DIRETAMENTE com um agricultor ou operador de máquina."
+
+                    prompt = (
+                        f"Você é o FleetPro Expert, assistente especializado em peças de reposição FleetPro "
+                        f"para máquinas agrícolas das marcas Case IH, New Holland, John Deere e outras.\n"
+                        f"A FleetPro oferece peças de qualidade equivalente à original com custo mais competitivo.\n"
+                        f"{perfil_texto}\n\n"
+                        f"Responda SEMPRE como FleetPro Expert. Nunca diga que é um modelo de IA genérico.\n"
+                        f"Se não souber algo específico sobre um PN, oriente o usuário a buscar na matriz ou "
+                        f"perguntar ao revendedor FleetPro mais próximo.\n\n"
+                        f"Pergunta: {input_usuario}"
+                    )
                     resposta_stream = st.write_stream(chat_model.stream(prompt))
                     resposta = resposta_stream
 
