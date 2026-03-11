@@ -553,14 +553,18 @@ def _carregar_documentos_rag(pasta: str):
 
 
 @st.cache_resource(show_spinner="Indexando documentos de conhecimento (RAG)...")
-def obter_vectorstore(openai_api_key: str, usar_site: bool = True):
+def obter_vectorstore(usar_site: bool = True):
     """
     Cria ou carrega o banco vetorial (Chroma) com documentos locais + site FleetPro.
     O cache só recria o índice se os arquivos ou o cache do site mudaram.
     """
     os.makedirs(BASE_DOCS_DIR, exist_ok=True)
 
-    embeddings = OpenAIEmbeddings(api_key=openai_api_key)
+    try:
+        from langchain_huggingface import HuggingFaceEmbeddings
+    except ImportError:
+        from langchain_community.embeddings import HuggingFaceEmbeddings
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
     arquivos_rag = _listar_arquivos_rag(BASE_DOCS_DIR)
 
@@ -1011,7 +1015,7 @@ def pagina_chat():
     if not input_usuario:
         return
 
-    # ── Captura escolha de perfil ─────────────────────────────────────────
+    # ── Captura escolha de perfil (ANTES de qualquer busca ou LLM) ───────
     if st.session_state.get("perfil_usuario") is None:
         resposta_lower = input_usuario.lower().strip()
         if any(p in resposta_lower for p in ["1", "vendedor", "vendo", "balcão", "balcao", "revend"]):
@@ -1074,7 +1078,7 @@ def pagina_chat():
                 api_key_openai = st.session_state.get("api_key_openai_rag", "")
                 if api_key_openai:
                     try:
-                        vs = obter_vectorstore(api_key_openai, usar_site=usar_site)
+                        vs = obter_vectorstore(usar_site=usar_site)
                         contexto_rag = buscar_no_rag(vs, input_usuario)
                     except Exception as e:
                         contexto_rag = f"(Erro ao acessar RAG: {e})"
@@ -1101,8 +1105,6 @@ def pagina_chat():
 
                 if blocos:
                     contexto_completo = "\n\n---\n\n".join(blocos)
-
-                    # ── Verifica perfil do usuário ────────────────────────
                     perfil = st.session_state.get("perfil_usuario")
 
                     if perfil is None:
@@ -1259,16 +1261,7 @@ def sidebar():
         )
         st.session_state["usar_rag"] = usar_rag
 
-        if st.session_state.get("sel_provedor") != "OpenAI":
-            api_key_rag = st.text_input(
-                "API key OpenAI (para indexar documentos)",
-                value=st.session_state.get("api_key_openai_rag", ""),
-                type="password",
-                help="O RAG usa embeddings da OpenAI mesmo quando o LLM é Groq.",
-            )
-            st.session_state["api_key_openai_rag"] = api_key_rag
-        else:
-            st.caption("✅ Usando a mesma API key OpenAI configurada acima.")
+        st.caption("✅ Embeddings locais (sentence-transformers) — não requer API key adicional.")
 
         col1, col2 = st.columns(2)
         with col1:
@@ -1281,7 +1274,7 @@ def sidebar():
                     _apagar_indice()
                     try:
                         usar_site = st.session_state.get("usar_site_fleetpro", True)
-                        vs = obter_vectorstore(api_key_rag, usar_site=usar_site)
+                        vs = obter_vectorstore(usar_site=usar_site)
                         if vs:
                             st.success("Indexado com sucesso!")
                         else:
@@ -1332,7 +1325,7 @@ def sidebar():
                     obter_vectorstore.clear()
                     _apagar_indice()
                     try:
-                        vs = obter_vectorstore(api_key_rag, usar_site=True)
+                        vs = obter_vectorstore(usar_site=True)
                         if vs:
                             st.success("Site indexado com sucesso!")
                         else:
